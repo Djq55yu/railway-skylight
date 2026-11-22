@@ -249,11 +249,22 @@ def attribute_clauses(conflicts: list[dict], kb: list[dict],
     return merged, source, notes
 
 
+CITATION_PREVIEW = 90      # 回复里只给原文首段，全文留在条目库
+
+
 def clause_line(clause: dict) -> str:
-    """把一条条文渲染成一句可引用的话。有原文用原文，没有就标明是摘要。"""
+    """把一条条文渲染成一句可引用的话。
+
+    补录原文后单条条文可能长达四五百字（2.2.10 共 432 字），整段塞进回复会把
+    结论淹掉。所以回复里只给前 90 字并注明总字数，全文保留在条目库里可查。
+    """
     ref = clause.get("rule_ref", "")
-    if clause.get("text"):
-        return f"（依据 {ref}）{clause['text']}"
+    text = " ".join((clause.get("text") or "").split())
+    if text:
+        if len(text) > CITATION_PREVIEW:
+            return (f"（依据 {ref}）{text[:CITATION_PREVIEW]}……"
+                    f"（原文共 {len(text)} 字，全文见条目库）")
+        return f"（依据 {ref}）{text}"
     return f"（依据 {ref}）{clause.get('summary', '')}（条文摘要，原文待补）"
 
 
