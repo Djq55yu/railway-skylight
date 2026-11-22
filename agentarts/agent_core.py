@@ -251,6 +251,15 @@ def attribute_clauses(conflicts: list[dict], kb: list[dict],
 
 CITATION_PREVIEW = 90      # 回复里只给原文首段，全文留在条目库
 
+# 数量统计的说法：模型一写这个，就和界面上的冲突清单可能对不上
+COUNT_CLAIM_RE = re.compile(
+    r"(?:共|合计|检出|共有|共计|总计)\s*\d+\s*条"
+    r"|\d+\s*条\s*(?:需处理|冲突|严重|待确认|重叠|问题|隐患)")
+
+
+def has_count_claim(text: str) -> bool:
+    return bool(COUNT_CLAIM_RE.search(text or ""))
+
 
 def clause_line(clause: dict) -> str:
     """把一条条文渲染成一句可引用的话。
@@ -354,6 +363,8 @@ SYSTEM_PROMPT = """你是铁路天窗作业计划的合规核查助手，面向�
 4. 不判断谁对谁错，只陈述「存在重叠，需确认分界点」。
 5. 分「需立即处理」与「待确认」两类，每条一行，不用表格、不用代码块、不用 JSON。
 6. 不要复述输入清单，不要罗列原始字段，直接给结论。
+7. **绝不写任何数量统计**：不写「共 N 条」「检出 N 条」「N 条严重」「N 条待确认」。
+   数量由界面上的冲突清单给，你只描述性质、位置、依据与处置。
 """
 
 
@@ -372,7 +383,9 @@ def render_llm(result: dict, clauses: dict[str, dict],
         return render_template(result, clauses, window)
 
     # 事实用紧凑的文本清单给，不给 JSON —— 给 JSON 模型会整段复述
-    lines = [f"天窗：{result.get('taskCount')} 条作业，检出 {len(result.get('conflicts', []))} 条需处理项。", ""]
+    # 刻意不给汇总数字：云端拿到的字段可能不全（如缺里程/道岔），
+    # 算出来的条数会和界面上的冲突清单不一致；数字只由界面与结构化字段给。
+    lines = ["以下是本次核查的冲突明细：", ""]
     for code, c in zip("①②③④⑤⑥⑦⑧⑨⑩", result.get("conflicts", [])):
         seq = "×".join(f"序{n}" for n in c["serialNos"])
         ref = clauses.get(c["id"], {}).get("rule_ref", "未匹配")
@@ -382,9 +395,9 @@ def render_llm(result: dict, clauses: dict[str, dict],
     user = (
         "以下是系统确定性判定的结果。请据此写一段给车站调度员的核查说明，直接输出正文，不要输出 JSON。\n\n"
         f"{body}\n\n"
-        "要求：先一句话说总体情况，再按「需立即处理」和「待确认」两类分条列出（每条一行，"
-        "保留单元名、序号、条文号），最后一句给处置建议。不要重复上面的事实清单的括号内容，"
-        "不要输出代码块或表格。"
+        "要求：先一句话说总体情况（**不要写条数**），再按「需立即处理」和「待确认」两类分条列出"
+        "（每条一行，保留单元名、序号、条文号），最后一句给处置建议。"
+        "不要重复上面的事实清单的括号内容，不要输出代码块或表格。"
     )
 
     with httpx.Client(timeout=60) as cli:
@@ -403,6 +416,11 @@ def render_llm(result: dict, clauses: dict[str, dict],
     if not text:
         # 推理模型可能把 token 全花在 reasoning 上，正文为空 —— 当作失败，交给上层回退
         raise ValueError("模型返回空正文（reasoning 吃掉了 token 配额）")
+
+    if has_count_claim(text):
+        # 云端拿到的字段可能不全，模型报出的条数会和界面不一致 —— 一律退回确定性版本
+        fallback = render_template(result, clauses, window)
+        return fallback + "\n\n（注：模型输出了数量统计，已改用确定性版本；条数以冲突清单为准。）"
 
     bad = validate_citations(text, clauses)
     if bad:
