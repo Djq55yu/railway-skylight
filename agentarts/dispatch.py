@@ -27,6 +27,7 @@ from typing import Any, Dict
 from dotenv import load_dotenv
 
 import agent_core
+import chat_entry
 import multi_agent
 from skylight_rules import check_window
 
@@ -39,11 +40,12 @@ MODE_ORCH = "ORCHESTRATE"
 MODE_CHK_PLAN = "CHECK_PLAN"
 MODE_ARB = "ARBITRATE"
 MODE_NEGOTIATE = "NEGOTIATE"
-MODES = (MODE_CHECK, MODE_ORCH, MODE_CHK_PLAN, MODE_ARB, MODE_NEGOTIATE)
+MODE_CHAT = "CHAT"
+MODES = (MODE_CHECK, MODE_ORCH, MODE_CHK_PLAN, MODE_ARB, MODE_NEGOTIATE, MODE_CHAT)
 DEFAULT_MODE = MODE_CHECK
 
 CONTRACT = (
-    "入参：{\"mode\":\"CHECK|ORCHESTRATE|CHECK_PLAN|ARBITRATE|NEGOTIATE\", "
+    "入参：{\"mode\":\"CHECK|ORCHESTRATE|CHECK_PLAN|ARBITRATE|NEGOTIATE|CHAT\", "
     "\"window\":{\"windowStart\":\"07:30\",\"windowEnd\":\"09:20\"}, "
     "\"tasks\":[{\"taskId\":\"...\",\"serialNo\":18,\"team\":\"...\","
     "\"unitCodes\":[\"列602区\"],\"start\":\"07:30\",\"end\":\"09:20\"}], "
@@ -341,11 +343,14 @@ def handle_invocation(request: Any) -> Dict[str, Any]:
             "response": f"未知 mode「{raw_mode}」。可用：{' / '.join(MODES)}",
         }
 
-    if not tasks and mode not in (MODE_ARB, MODE_CHK_PLAN):
+    if not tasks and mode not in (MODE_ARB, MODE_CHK_PLAN, MODE_CHAT):
         return {
             "mode": mode, "status": "error", "conflictCount": 0,
             "response": ("没有收到作业列表。\n" + CONTRACT),
         }
+
+    if mode == MODE_CHAT:      # 对话入口：只要一句话，不需要 tasks
+        return chat_entry.handle(req)
 
     if mode == MODE_ARB:
         return _mode_arbitrate(req, tasks, window)

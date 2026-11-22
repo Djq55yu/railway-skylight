@@ -13,7 +13,10 @@
 | `verify_rules.py` | 拿 9/23 的 12 条真实数据比对 gold，防两份实现分叉 | ✅ 纯标准库 |
 | `agent_core.py` | 四节点：解析 → 判定 → 检索 → 生成 + 引用校验；协商陈述 | ✅ |
 | `multi_agent.py` | 三角色：编排（出 A/B + 代价）/ 核查（确定性）/ 仲裁（给建议 + 退路） | ✅ |
-| `dispatch.py` | **mode 分派**：CHECK / ORCHESTRATE / CHECK_PLAN / ARBITRATE / NEGOTIATE | ✅ 不依赖 SDK |
+| `dispatch.py` | **mode 分派**：CHECK / ORCHESTRATE / CHECK_PLAN / ARBITRATE / NEGOTIATE / CHAT | ✅ 不依赖 SDK |
+| `chat_entry.py` | 对话入口：一句话 → 两轮工具调用 → `{windowId, taskMode}` | ✅ 规则兜底 |
+| `test_chat.py` | 对话入口本地测试（13 项，强制走规则、不依赖模型） | ✅ |
+| `demo_chat_host.py` | 扮演后端宿主：跑完「提问 → 查窗 → 预审」整条链路 | ✅ |
 | `test_modes.py` | 五个 mode 全跑一遍（29 项检查） | ✅ |
 | `negotiate_cloud.py` | 三个云端运行时串一次协商（方案三） | 需已部署 |
 | `clauses.json` | 规章条目库（带 `conflict_type` 元数据做前置过滤） | ✅ |

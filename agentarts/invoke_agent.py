@@ -11,6 +11,8 @@
     python invoke_agent.py check-plan     # 只核查（需 plan，脚本自带）
     python invoke_agent.py arbitrate      # 只仲裁（脚本先编排两套）
     python invoke_agent.py negotiate      # 全链路：编排 + 核查 + 仲裁 + 留痕
+    python invoke_agent.py chat           # 对话入口第 1 轮（应返回 tool_call）
+    python invoke_agent.py chat "查一下 9 月 23 日 07:30 的天窗"
 """
 from __future__ import annotations
 
@@ -44,6 +46,7 @@ MODES = {
     "orchestrate": "ORCHESTRATE",
     "arbitrate": "ARBITRATE",
     "negotiate": "NEGOTIATE",
+    "chat": "CHAT",
 }
 
 # 业务模式（方案 v1.3 表 4）：PRE_REVIEW 一期已交付，另两档应返回 not_implemented
@@ -150,6 +153,11 @@ def main() -> int:
 
     if task_mode:
         payload = {"window": window, "tasks": full_payload()["tasks"], "taskMode": task_mode}
+    elif mode == "CHAT":
+        # 对话入口：第 1 轮只发一句话，看它要不要工具
+        payload = {"mode": "CHAT", "round": 1,
+                   "text": (argv[1] if len(argv) > 1 and argv[0] == "chat"
+                            else "核查 9 月 23 号 07:30 那个天窗")}
     elif mode == "CHECK":
         payload = full_payload() if "full" in argv else minimal_payload()
     else:

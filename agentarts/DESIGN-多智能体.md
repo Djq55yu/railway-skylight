@@ -138,7 +138,7 @@ ORCHESTRATOR ──plans[A,B]（含 cost）──► CHECKER
 
 ## 六、怎么落到 AgentArts
 
-### 6.0 路线 2 已落地：一个入口，五个 mode
+### 6.0 路线 2 已落地：一个入口，六个 mode
 
 `/invocations` 的入参多一个 `mode` 字段，同一个运行时按它分派到不同角色。
 **省略 `mode` 时按 `CHECK` 处理**，所以旧的调用方（前端、后端、演示脚本）一个字都不用改。
@@ -150,6 +150,11 @@ ORCHESTRATOR ──plans[A,B]（含 cost）──► CHECKER
 | `CHECK_PLAN` | 核查者 | 单个方案的冲突数 / 严重度 | **否**（确定性） |
 | `ARBITRATE` | 仲裁者 | 建议 + 理由 + 退路 | 可选 |
 | `NEGOTIATE` | 三者串联 | 上面全部 + 留痕 5 条事件 | 可选 |
+| `CHAT` | 意图解析 | 两轮工具调用：`tool_call` → `command{windowId, taskMode}` | 是（失败回退规则） |
+
+`CHAT` 是**对话入口**，不判定也不查库：第 1 轮说「我需要 `list_windows(9月23日)`」，
+宿主（后端）查库把候选回灌，第 2 轮它在候选里选定并输出命令。最多两轮，工具走白名单，
+模型造不存在的 `windowId` 会被拒。详见 `架构-对话入口-v1.md`。
 
 调用示例（全链路协商）：
 
