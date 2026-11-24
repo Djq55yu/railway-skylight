@@ -1,24 +1,73 @@
-# 铁路维修天窗多专业协同智能体
+# 天窗协同 · 普速铁路维修天窗多专业协同智能体
 
-面向普速铁路维修天窗，在既有天窗计划系统之上，做「智能编排 + 合规核查」层——自动检测多工区/多专业作业在同一作业单元、同一时段内的冲突。
+面向普速铁路维修天窗，在既有「施工管理信息系统」与「工务安全生产系统」之间，做一层**只读的智能编排 + 合规核查**：
+自动检测多工区、多专业作业在同一作业单元、同一时段内的冲突，给出条文依据与两套可选的处置方案。
 
-## 项目结构
+> 华为 ICT 大赛 · 创新赛 · 赛题 2（基于华为云 AgentArts 智能体开发平台的 Agent 设计和应用）
+
+---
+
+## 这个仓库里有什么
+
+| 目录 | 内容 |
+|---|---|
+| `agentarts/` | **智能体**：三个运行时（核查 / 编排 / 仲裁）、六个 mode、对话入口、条文库、部署手册 |
+| `backend/` | **后端**：Spring Boot（`/api/conflicts`、`/api/agent/check`、`/api/agent/explain`） |
+| `frontend/` | **前端**：单文件 `index.html`，三页（冲突清单 / 时长甘特 / 人工确认台）+ AI 核查说明面板 |
+
+---
+
+## 快速开始（不部署也能跑）
+
+```powershell
+cd agentarts
+python verify_rules.py      # 判定与 gold 一致：10 对全中
+python test_modes.py        # 六个 mode，38 项检查
+python test_chat.py         # 对话入口，13 项检查
+python demo_chat_host.py "核查 9 月 23 号 07:30 那个天窗"   # 一句话跑完整条链路
+```
+
+部署到华为云 AgentArts（三个运行时、镜像构建、七个坑）：见 [`agentarts/部署手册.md`](agentarts/部署手册.md)。
+
+---
+
+## 关键数字
+
+| 指标 | 实测 |
+|---|---|
+| 9/23 单窗口（12 条作业） | 10 条冲突（严重 6 / 待确认 4），与人工标注 **10 对完全一致** |
+| 全量 55 条（15 个天窗） | 标注 14 对 / 检出 13 对 / **92.9%** / 误报 **0** |
+| 端到端（含模型） | 判定 < 200 ms；对话链路约 **6 s** |
+| 条文原文覆盖率 | **6/6**（2023 版逐字核对） |
+
+---
+
+## 设计要点
+
+1. **判定不经模型** —— 六类冲突由纯函数算出，可单测、可复现；模型只负责把结论写成调度员能读的话。
+2. **三个独立运行时** —— 核查 / 编排 / 仲裁各一个，同一镜像，靠 `AGENT_DEFAULT_MODE` 区分默认角色；`mode` 是调度形态，角色是职责划分。
+3. **协作负载是契约** —— 角色之间只传带 schema 的结构化产物，不传自由文本；每步留痕（`trace` 5 条事件）。
+4. **结论可追溯** —— 每条结论带条号，模型给出的条号要过白名单逐字校验，不通过即回退确定性模板。
+5. **不碰数据** —— 运行时无状态、不连库；作业数据由后端裁剪后随请求传入。真实日计划含人员姓名电话，**评测集不入库**。
+
+---
+
+## 目录
 
 ```
-├── backend/     Spring Boot 后端（Maven 多模块：skylight-common + skylight-server）
-├── frontend/    前端（单文件 index.html + nginx 配置）
-└── .gitignore
+agentarts/            智能体源码、条文库、部署手册、设计文档
+backend/              Spring Boot（skylight-common + skylight-server）
+frontend/             index.html（单文件三页）
+.gitignore            排除密钥、构建产物与真实评测数据
 ```
 
-- 后端构建 / 运行：见 [backend/README.md](backend/README.md)
-- 前端部署：见 [frontend/README.md](frontend/README.md)
+---
 
-## 技术栈
+## 文档
 
-- 后端：Java 25 · Spring Boot 4.0.6 · MySQL 8.0 · MyBatis · PageHelper
-- 前端：原生 HTML/CSS/JS 单页 + Nginx 反代
-- 核心算法：纯 Java（无框架依赖，可独立编译单测）
-
-## 完整方案
-
-完整需求、规则与开发方案见仓库外《铁路综合维修天窗多专业协同智能体-合并版方案.md》。
+| 文档 | 内容 |
+|---|---|
+| [`agentarts/DESIGN-多智能体.md`](agentarts/DESIGN-多智能体.md) | 角色契约、协商时序、留痕三表、平台落地两条路线 |
+| [`agentarts/部署手册.md`](agentarts/部署手册.md) | 三个运行时怎么建、七个实测坑 |
+| [`agentarts/README.md`](agentarts/README.md) | 智能体文件说明与本地验证 |
+| [`backend/README.md`](backend/README.md) | 后端构建与运行 |
